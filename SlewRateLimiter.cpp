@@ -1,40 +1,89 @@
 /**
  * @file SlewRateLimiter.cpp
- * @brief Implementation of the SlewRateLimiter class.
+ * @brief Implements the SlewRateLimiter class, providing both fixed and adaptive slew rate control.
  *
- * The SlewRateLimiter class provides a mechanism to limit the slew rate of a signal, offering
- * both fixed and adaptive limiting modes. The implementation uses an Exponential Moving Average (EMA) 
- * to smooth the input signal and applies a configurable rate limit to control the rate of change. 
- * The adaptive mode adjusts the slew rate based on the magnitude of the input change, improving 
- * responsiveness for large signal changes while maintaining stability for smaller fluctuations. 
- * A hysteresis feature is also implemented to prevent oscillation in the output.
+ * This implementation of the SlewRateLimiter class allows for precise control over the rate at which a 
+ * signal can change, also known as its slew rate. By smoothing input signals and limiting their rate of 
+ * change, the library helps prevent abrupt signal changes that could lead to undesirable effects in physical 
+ * systems, such as mechanical stress, overshooting in control systems, or audible clicks in audio systems.
  *
- * This class is suitable for applications where signal stability is critical and where it is 
- * necessary to balance responsiveness against the risk of overshoot or other transient effects.
+ * The adaptive mode allows the slew rate to increase with larger signal deviations, making the system more 
+ * responsive during rapid changes while still preventing excessively fast transitions. The library uses an 
+ * Exponential Moving Average (EMA) to smooth the input signal and provides a hysteresis mechanism to avoid 
+ * unnecessary adjustments for small fluctuations, which is particularly useful for noisy signals.
  *
- * @note The adaptive slope is internally scaled to a base of 128 to utilize efficient bit-shifting operations 
- *       during calculations, reducing processing overhead.
+ * Methods:
+ * - updateEMA: Internal method to update the EMA with a new signal value.
+ * - processValue: Applies rate limiting to an input value based on the current configuration.
+ * - setRateLimit: Configures the maximum rate of change allowed in fixed mode.
+ * - setHysteresisBand: Defines the range within which the output will not change, to prevent noise.
+ * - setSmoothingExponent: Adjusts the weight of new input values in the EMA calculation.
+ * - setAdaptiveSlope: Determines how much the slew rate increases with larger input deviations.
+ * - reset: Reinitializes the internal state, clearing the EMA and last output value.
  *
- * @author Andrew McKinnon
- * @date 2023-11-03
+ * The implementation is optimized for microcontrollers, using efficient algorithms and avoiding floating-point 
+ * arithmetic to ensure it can run on low-resource hardware platforms like the Arduino.
+ *
+ * @author  Andrew McKinnon
+ * @date    2023-11-3
  */
+
 
 #include "SlewRateLimiter.h"
 
 SlewRateLimiter::SlewRateLimiter(SmoothingExponent exponent, int rate, int hystBand, int slope)
-: lastValue(0), emaValue(0), isFirstCall(true), currentExponent(exponent), rateLimit(rate), hysteresisBand(hystBand)
+: lastValue(0), emaValue(0), isFirstCall(true), currentExponent(exponent), rateLimit(rate), hysteresisBand(hystBand), adaptiveSlopeInternal(0)
 {
     setAdaptiveSlope(slope);
 }
 
 int SlewRateLimiter::updateEMA(int newValue, int currentEMA, SmoothingExponent smoothingExponent) 
 {
-    // EMA calculation here
+    // Efficient EMA calculation using bit-shifting for powers of 2
+    return ((newValue << smoothingExponent) + (currentEMA << 10) - (currentEMA << smoothingExponent)) >> 10;
 }
 
 int SlewRateLimiter::processValue(int currentValue) 
 {
-    // Process value with rate limiting and hysteresis here
+    if (isFirstCall) 
+    {
+        emaValue = currentValue;
+        lastValue = currentValue;
+        isFirstCall = false;
+    }
+    else 
+    {
+        emaValue = updateEMA(currentValue, emaValue, currentExponent);
+    }
+
+    int difference = currentValue - emaValue;
+    int processedValue = currentValue;
+    int adaptive_rate_limit = rateLimit;
+
+    // Apply adaptive rate limit if adaptiveSlopeInternal is set
+    if (adaptiveSlopeInternal != 0) 
+    {
+        adaptive_rate_limit += ((abs(difference) * adaptiveSlopeInternal) >> 7); // Adaptive scaling
+    }
+
+    // Apply rate limiting
+    if (difference > adaptive_rate_limit) 
+    {
+        processedValue = emaValue + adaptive_rate_limit;
+    } 
+    else if (difference < -adaptive_rate_limit) 
+    {
+        processedValue = emaValue - adaptive_rate_limit;
+    }
+
+    // Apply hysteresis
+    if (abs(difference) <= hysteresisBand) 
+    {
+        processedValue = lastValue;
+    }
+
+    lastValue = processedValue;
+    return processedValue;
 }
 
 void SlewRateLimiter::setRateLimit(int limit) 
@@ -54,11 +103,13 @@ void SlewRateLimiter::setSmoothingExponent(SmoothingExponent exponent)
 
 void SlewRateLimiter::setAdaptiveSlope(int slope) 
 {
-    adaptiveSlopeInternal = (slope * 128 + 50) / 100;
+    // Convert the slope from a percentage to a scale of 128 for efficient calculation
+    adaptiveSlopeInternal = (slope * 128 + 50) / 100; // The "+ 50" is for rounding to the nearest integer
 }
 
 void SlewRateLimiter::reset() 
 {
     isFirstCall = true;
-    // Other reset actions here
+    lastValue = 0;
+    emaValue = 0;
 }
