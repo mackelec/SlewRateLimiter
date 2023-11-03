@@ -60,6 +60,7 @@ void loop() {
 #include "SlewRateLimiter.h"
 
 // Initialize with a higher smoothing level, rate limit, hysteresis band, and an adaptive slope
+// Adaptive slope has a base of 128.  so a value of 128 will give a slopw of 1
 SlewRateLimiter myLimiter(SRL_SMOOTHING_16, 10, 3, 50);
 
 void setup() {
