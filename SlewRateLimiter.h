@@ -37,30 +37,29 @@
  * @date    2023-11-3
  */
 
-
 #ifndef SlewRateLimiter_h
 #define SlewRateLimiter_h
 
 #include "Arduino.h"
 
-enum SmoothingExponent {
-    SMOOTHING_VALUE_1 = 0,
-    SMOOTHING_VALUE_2 = 1,
-    SMOOTHING_VALUE_4 = 2,
-    SMOOTHING_VALUE_8 = 3,
-    SMOOTHING_VALUE_16 = 4,
-    SMOOTHING_VALUE_32 = 5,
-    SMOOTHING_VALUE_64 = 6,
-    SMOOTHING_VALUE_128 = 7,
-    SMOOTHING_VALUE_256 = 8,
-    SMOOTHING_VALUE_512 = 9
-};
-
 class SlewRateLimiter 
 {
 public:
+    enum SRL_SmoothingExponent {
+        SRL_SMOOTHING_1 = 0,
+        SRL_SMOOTHING_2 = 1,
+        SRL_SMOOTHING_4 = 2,
+        SRL_SMOOTHING_8 = 3,
+        SRL_SMOOTHING_16 = 4,
+        SRL_SMOOTHING_32 = 5,
+        SRL_SMOOTHING_64 = 6,
+        SRL_SMOOTHING_128 = 7,
+        SRL_SMOOTHING_256 = 8,
+        SRL_SMOOTHING_512 = 9
+    };
+
     SlewRateLimiter(
-        SmoothingExponent exponent = SMOOTHING_VALUE_4, 
+        SRL_SmoothingExponent exponent = SRL_SMOOTHING_4, 
         int rate = 5, 
         int hystBand = 2,
         int slope = 0
@@ -69,20 +68,19 @@ public:
     int processValue(int currentValue);
     void setRateLimit(int limit);
     void setHysteresisBand(int band);
-    void setSmoothingExponent(SmoothingExponent exponent);
+    void setSmoothingExponent(SRL_SmoothingExponent exponent);
     void setAdaptiveSlope(int slope);
     void reset();
 
 private:
-    int updateEMA(int newValue, int currentEMA, SmoothingExponent smoothingExponent);
+    int updateEMA(int newValue, int currentEMA, SRL_SmoothingExponent smoothingExponent);
     int lastValue;
     int emaValue;
     bool isFirstCall;
-    SmoothingExponent currentExponent;
+    SRL_SmoothingExponent currentExponent;
     int rateLimit;
     int hysteresisBand;
     int adaptiveSlopeInternal;
 };
 
 #endif /* SlewRateLimiter_h */
-

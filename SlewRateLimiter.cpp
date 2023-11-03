@@ -31,59 +31,71 @@
 
 #include "SlewRateLimiter.h"
 
-SlewRateLimiter::SlewRateLimiter(SmoothingExponent exponent, int rate, int hystBand, int slope)
-: lastValue(0), emaValue(0), isFirstCall(true), currentExponent(exponent), rateLimit(rate), hysteresisBand(hystBand), adaptiveSlopeInternal(0)
+SlewRateLimiter::SlewRateLimiter(
+    SRL_SmoothingExponent exponent, 
+    int rate, 
+    int hystBand, 
+    int slope
+)
+  : lastValue(0),
+    emaValue(0),
+    isFirstCall(true),
+    currentExponent(exponent),
+    rateLimit(rate),
+    hysteresisBand(hystBand),
+    adaptiveSlopeInternal(0)
 {
-    setAdaptiveSlope(slope);
+  setAdaptiveSlope(slope);
 }
 
-int SlewRateLimiter::updateEMA(int newValue, int currentEMA, SmoothingExponent smoothingExponent) 
+int SlewRateLimiter::updateEMA(int newValue, int currentEMA, SRL_SmoothingExponent smoothingExponent) 
 {
     // Efficient EMA calculation using bit-shifting for powers of 2
     return ((newValue << smoothingExponent) + (currentEMA << 10) - (currentEMA << smoothingExponent)) >> 10;
 }
 
-int SlewRateLimiter::processValue(int currentValue) 
+int SlewRateLimiter::processValue(int currentValue)
 {
-    if (isFirstCall) 
-    {
-        emaValue = currentValue;
-        lastValue = currentValue;
-        isFirstCall = false;
-    }
-    else 
-    {
-        emaValue = updateEMA(currentValue, emaValue, currentExponent);
-    }
+  if (isFirstCall)
+  {
+    lastValue = currentValue;
+    emaValue = currentValue;
+    isFirstCall = false;
+    return currentValue;
+  }
 
-    int difference = currentValue - emaValue;
-    int processedValue = currentValue;
-    int adaptive_rate_limit = rateLimit;
+  emaValue = updateEMA(currentValue, emaValue, currentExponent);
 
-    // Apply adaptive rate limit if adaptiveSlopeInternal is set
-    if (adaptiveSlopeInternal != 0) 
-    {
-        adaptive_rate_limit += ((abs(difference) * adaptiveSlopeInternal) >> 7); // Adaptive scaling
-    }
+  int delta = currentValue - lastValue;
+  int allowedChange = rateLimit;
 
-    // Apply rate limiting
-    if (difference > adaptive_rate_limit) 
-    {
-        processedValue = emaValue + adaptive_rate_limit;
-    } 
-    else if (difference < -adaptive_rate_limit) 
-    {
-        processedValue = emaValue - adaptive_rate_limit;
-    }
+  // Implement adaptive slope if applicable
+  if (adaptiveSlopeInternal != 0)
+  {
+    allowedChange += (abs(delta) * adaptiveSlopeInternal)>>7;
+  }
 
-    // Apply hysteresis
-    if (abs(difference) <= hysteresisBand) 
-    {
-        processedValue = lastValue;
-    }
+  // Rate limiting
+  if (delta > allowedChange)
+  {
+    lastValue += allowedChange;
+  }
+  else if (delta < -allowedChange)
+  {
+    lastValue -= allowedChange;
+  }
+  else
+  {
+    lastValue = currentValue;
+  }
 
-    lastValue = processedValue;
-    return processedValue;
+  // Apply hysteresis
+  if (abs(currentValue - lastValue) <= hysteresisBand)
+  {
+    lastValue = currentValue;
+  }
+
+  return lastValue;
 }
 
 void SlewRateLimiter::setRateLimit(int limit) 
@@ -96,7 +108,7 @@ void SlewRateLimiter::setHysteresisBand(int band)
     hysteresisBand = band;
 }
 
-void SlewRateLimiter::setSmoothingExponent(SmoothingExponent exponent) 
+void SlewRateLimiter::setSmoothingExponent(SRL_SmoothingExponent exponent) 
 {
     currentExponent = exponent;
 }
