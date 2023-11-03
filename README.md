@@ -38,10 +38,10 @@ The `SRL_SmoothingExponent` enum offers predefined settings for the EMA smoothin
 ### Example 1: Basic Rate Limiting
 
 ```
-#include "SlewRateLimiter.h"
+#include <SlewRateLimiter.h>
 
 // Initialize a limiter with default smoothing, a rate limit of 5 units, and a hysteresis band of 2 units
-SlewRateLimiter myLimiter(SRL_SMOOTHING_4, 5, 2);
+SlewRateLimiter myLimiter(SlewRateLimiter::SRL_SMOOTHING_4, 5, 2);
 
 void setup() {
   // Setup code here
@@ -61,7 +61,7 @@ void loop() {
 
 // Initialize with a higher smoothing level, rate limit, hysteresis band, and an adaptive slope
 // Adaptive slope has a base of 128.  so a value of 128 will give a slopw of 1
-SlewRateLimiter myLimiter(SRL_SMOOTHING_16, 10, 3, 50);
+SlewRateLimiter myLimiter(SlewRateLimiter::SRL_SMOOTHING_16, 10, 3, 50);
 
 void setup() {
   // Any required setup code here
